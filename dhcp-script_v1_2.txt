@@ -1,0 +1,82 @@
+#!/bin/sh
+
+#Установка DHCP-сервера
+
+sudo apt install isc-dhcp-server -y
+
+#Добавление настройки доп интерфейса
+
+#Пересоздать файл конфигурации
+sudo rm /etc/network/interfaces
+sudo touch /etc/network/interfaces
+
+#Добавить исходные данные
+sudo echo '# This file describes the network interfaces available on your system' >> /etc/network/interfaces
+sudo echo '# and how to activate them. For more information, see interfaces.' >> /etc/network/interfaces
+sudo echo '#1' >> /etc/network/interfaces
+sudo echo 'source /etc/network/interfaces.d/*' >> /etc/network/interfaces
+sudo echo '#1' >> /etc/network/interfaces
+sudo echo '# The loopback network interface' >> /etc/network/interfaces
+sudo echo 'auto lo' >> /etc/network/interfaces
+sudo echo 'iface lo inet loopback' >> /etc/network/interfaces
+sudo echo '#1' >> /etc/network/interfaces
+#Настройка интерфейса DHCP
+sudo echo '#DHCP-server address' >> /etc/network/interfaces
+sudo echo 'auto eth1' >> /etc/network/interfaces
+sudo echo 'iface eth1 inet static' >> /etc/network/interfaces
+sudo echo 'address 192.168.16.1' >> /etc/network/interfaces
+sudo echo 'netmask 255.255.255.0' >> /etc/network/interfaces
+sudo sed -i '/#1/d' /etc/network/interfaces
+
+#Добавить интерфейс в настройку
+
+sudo sed -i 's/INTERFACESv4=""/INTERFACESv4="eth1"/' /etc/default/isc-dhcp-server
+
+#Настройка DHCP
+
+sudo rm /etc/dhcp/dhcpd.conf
+sudo touch /etc/dhcp/dhcpd.conf
+
+#Основная настройка DHCP
+
+sudo echo '#Задать DNS-сервер' >> /etc/dhcp/dhcpd.conf
+sudo echo 'option domain-name "dedov.ded";' >> /etc/dhcp/dhcpd.conf
+sudo echo 'option domain-name-servers 192.168.16.1, 10.0.2.1;' >> /etc/dhcp/dhcpd.conf
+sudo echo '#' >> /etc/dhcp/dhcpd.conf
+sudo echo '#Прочее' >> /etc/dhcp/dhcpd.conf
+sudo echo 'default-lease-time 600;' >> /etc/dhcp/dhcpd.conf
+sudo echo 'max-lease-time 7200;' >> /etc/dhcp/dhcpd.conf
+sudo echo 'ddns-update-style none;' >> /etc/dhcp/dhcpd.conf
+sudo echo 'log-facility local7;' >> /etc/dhcp/dhcpd.conf
+sudo echo '#' >> /etc/dhcp/dhcpd.conf
+sudo echo '#Основная настройка DHCP' >> /etc/dhcp/dhcpd.conf
+sudo echo 'subnet 192.168.16.0 netmask 255.255.255.0 {' >> /etc/dhcp/dhcpd.conf
+sudo echo '  range 192.168.16.100 192.168.16.200;' >> /etc/dhcp/dhcpd.conf
+sudo echo '  option routers 192.168.16.1;' >> /etc/dhcp/dhcpd.conf
+sudo echo '  option broadcast-address 192.168.16.255;' >> /etc/dhcp/dhcpd.conf
+sudo echo '  option subnet-mask 255.255.255.0;' >> /etc/dhcp/dhcpd.confs
+sudo echo '}' >> /etc/dhcp/dhcpd.conf
+sudo echo '#' >> /etc/dhcp/dhcpd.conf
+sudo echo '#Задать фиксированный адрес' >> /etc/dhcp/dhcpd.conf
+sudo echo '#host fantasia {' >> /etc/dhcp/dhcpd.conf
+sudo echo '#  hardware ethernet 08:00:07:26:c0:a5;' >> /etc/dhcp/dhcpd.conf
+sudo echo '#  fixed-address fantasia.example.com;' >> /etc/dhcp/dhcpd.conf
+sudo echo '#}' >> /etc/dhcp/dhcpd.conf
+sudo echo '#' >> /etc/dhcp/dhcpd.conf
+
+#Добавить в автозагрузку и перезагрузить службу
+sudo systemctl enable isc-dhcp-server.service
+sudo systemctl restart isc-dhcp-server.service
+
+#Добавить NAT
+sudo sed -i 's/#net.ipv4.conf.all.forwarding=1/net.ipv4.conf.all.forwarding=1/' /etc/sysctl.conf
+sudo sysctl -p
+sudo touch /etc/network/if-pre-up.d/nat
+sudo echo '#!/bin/sh' >> /etc/network/if-pre-up.d/nat
+sudo echo '#' >> /etc/network/if-pre-up.d/nat
+sudo echo '/sbin/iptables -A POSTROUTING -t nat -j MASQUERADE' >> /etc/network/if-pre-up.d/nat
+sudo chmod 600 /etc/network/if-pre-up.d/nat
+
+
+#Контрольная перезагрузка
+/sbin/reboot
